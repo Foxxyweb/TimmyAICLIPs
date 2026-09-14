@@ -95,7 +95,6 @@ export default function ClipCard({ clip, index }) {
             <video
               ref={videoRef}
               src={videoUrl}
-              crossOrigin="anonymous"
               className="w-full h-full object-cover"
               onPlay={() => setIsPlaying(true)}
               onPause={() => setIsPlaying(false)}
