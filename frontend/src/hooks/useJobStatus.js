@@ -16,7 +16,28 @@ export default function useJobStatus(jobId) {
   const retryTimerRef = useRef(null)
   const maxRetries    = 5
 
-  // 1. Fungsi Fetch Manual (HTTP Polling Fallback)
+  // Fungsi update pintar: jangan izinkan status mundur ke belakang
+  const safeSetJob = useCallback((newData) => {
+    if (!newData) return
+    setJob((prev) => {
+      if (!prev) return newData
+
+      // Jika data baru progressnya lebih kecil dan statusnya sama, abaikan agar tidak kedap-kedip
+      if (newData.progress < prev.progress && newData.status === prev.status) {
+        return prev
+      }
+
+      // Gabungkan data agar properti video_title / thumbnail tidak hilang mendadak
+      return {
+        ...prev,
+        ...newData,
+        video_title: newData.video_title || prev.video_title,
+        thumbnail_url: newData.thumbnail_url || prev.thumbnail_url,
+      }
+    })
+  }, [])
+
+  // 1. Polling HTTP
   const fetchJobStatus = useCallback(async () => {
     if (!jobId) return
     try {
@@ -25,14 +46,15 @@ export default function useJobStatus(jobId) {
           'ngrok-skip-browser-warning': 'true',
         },
       })
-      setJob(res.data)
-      return res.data
+      if (res.data) {
+        safeSetJob(res.data)
+        return res.data
+      }
     } catch (err) {
       console.error('Fetch job error:', err)
     }
-  }, [jobId])
+  }, [jobId, safeSetJob])
 
-  // 2. Polling setiap 2.5 detik selama job belum selesai/gagal
   useEffect(() => {
     if (!jobId) return
 
@@ -43,12 +65,12 @@ export default function useJobStatus(jobId) {
       if (data && (data.status === 'completed' || data.status === 'failed' || data.status === 'cancelled')) {
         clearInterval(interval)
       }
-    }, 2500)
+    }, 2000)
 
     return () => clearInterval(interval)
   }, [jobId, fetchJobStatus])
 
-  // 3. WebSocket Connection
+  // 2. WebSocket
   const connect = useCallback(() => {
     if (!jobId) return
     
@@ -69,7 +91,7 @@ export default function useJobStatus(jobId) {
     ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data)
-        setJob(data)
+        safeSetJob(data)
         if (data.status === 'completed' || data.status === 'failed') {
           setTimeout(() => ws.close(), 1000)
         }
@@ -90,7 +112,7 @@ export default function useJobStatus(jobId) {
         retryTimerRef.current = setTimeout(connect, delay)
       }
     }
-  }, [jobId])
+  }, [jobId, safeSetJob])
 
   useEffect(() => {
     connect()
