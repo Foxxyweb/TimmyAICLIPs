@@ -3,7 +3,7 @@ import { motion } from 'framer-motion'
 import { Download, Play, Pause, TrendingUp, Clock, Zap, FileVideo, Loader2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || ''
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/+$/, '')
 
 function ViralScoreBadge({ score }) {
   const color = score >= 80 ? 'text-yellow-400 bg-yellow-500/15 border-yellow-500/30' :
@@ -24,30 +24,36 @@ export default function ClipCard({ clip, index }) {
   const [loadingVideo, setLoadingVideo] = useState(false)
   const videoRef = useRef(null)
 
-  // 1. Susun URL Backend Video
-  const rawUrl = clip.video_url || (clip.filename ? `/clips/${clip.filename}` : '')
-  let initialUrl = rawUrl.startsWith('http') 
-    ? rawUrl 
-    : `${API_BASE}${rawUrl.startsWith('/') ? '' : '/'}${rawUrl}`
+  // 1. Tangkap path dari semua kemungkinan key backend (video_url, filename, path, file_path, dsb)
+  const rawPath = clip?.video_url || clip?.url || clip?.file_url || clip?.filename || clip?.path || clip?.file_path || ''
+
+  // 2. Ekstrak nama file murni (buang D:\path\ke\file\ atau /var/data/)
+  let finalVideoUrl = ''
+  if (rawPath.startsWith('http://') || rawPath.startsWith('https://')) {
+    finalVideoUrl = rawPath
+  } else if (rawPath) {
+    const filenameOnly = rawPath.split(/[/\\]/).pop()
+    finalVideoUrl = `${API_BASE}/clips/${filenameOnly}`
+  }
 
   // Sisipkan bypass header via Query Param untuk ngrok
-  const separator = initialUrl.includes('?') ? '&' : '?'
-  const directVideoUrl = initialUrl ? `${initialUrl}${separator}ngrok-skip-browser-warning=true` : ''
+  const separator = finalVideoUrl.includes('?') ? '&' : '?'
+  const videoUrlWithBypass = finalVideoUrl ? `${finalVideoUrl}${separator}ngrok-skip-browser-warning=true` : ''
 
-  // 2. Fetch video menjadi Blob agar terbebas 100% dari blokiran Ngrok & MIME Error
+  // 3. Fetch video menjadi Blob agar bebas dari blokir ngrok & isu MIME
   useEffect(() => {
     let active = true
-    if (!directVideoUrl) return
+    if (!videoUrlWithBypass) return
 
     const loadVideoBlob = async () => {
       try {
         setLoadingVideo(true)
-        const res = await fetch(directVideoUrl, {
+        const res = await fetch(videoUrlWithBypass, {
           headers: {
             'ngrok-skip-browser-warning': 'true',
           }
         })
-        if (!res.ok) throw new Error('Failed to load video stream')
+        if (!res.ok) throw new Error(`HTTP Error: ${res.status}`)
         const blob = await res.blob()
         if (active) {
           const objectUrl = URL.createObjectURL(blob)
@@ -55,7 +61,7 @@ export default function ClipCard({ clip, index }) {
         }
       } catch (err) {
         console.error("Gagal load blob video, fallback ke direct URL:", err)
-        if (active) setBlobVideoUrl(directVideoUrl)
+        if (active) setBlobVideoUrl(videoUrlWithBypass)
       } finally {
         if (active) setLoadingVideo(false)
       }
@@ -69,31 +75,36 @@ export default function ClipCard({ clip, index }) {
         URL.revokeObjectURL(blobVideoUrl)
       }
     }
-  }, [directVideoUrl])
+  }, [videoUrlWithBypass])
 
-  const durationStr = clip.duration 
+  const durationStr = clip?.duration 
     ? `${Math.floor(clip.duration)}s`
-    : `${Math.floor((clip.end_time || 0) - (clip.start_time || 0))}s`
+    : `${Math.floor((clip?.end_time || 0) - (clip?.start_time || 0))}s`
   
-  const fileSizeMB = clip.file_size 
+  const fileSizeMB = clip?.file_size 
     ? (clip.file_size / 1024 / 1024).toFixed(1)
     : null
 
-  const handlePlayPause = () => {
+  const handlePlayPause = async () => {
     if (!videoRef.current) return
     
     if (isPlaying) {
       videoRef.current.pause()
     } else {
-      videoRef.current.play().catch((err) => {
+      try {
+        await videoRef.current.play()
+      } catch (err) {
         console.error('Play error:', err)
-      })
+        toast.error('Tidak dapat memutar video')
+      }
     }
   }
 
   const handleDownload = async () => {
     try {
-      const targetUrl = blobVideoUrl || directVideoUrl
+      const targetUrl = blobVideoUrl || videoUrlWithBypass
+      if (!targetUrl) throw new Error('File video tidak ditemukan')
+
       const response = await fetch(targetUrl, {
         headers: {
           'ngrok-skip-browser-warning': 'true',
@@ -105,15 +116,16 @@ export default function ClipCard({ clip, index }) {
       const blob = await response.blob()
       const url = URL.createObjectURL(blob)
       
+      const filenameOnly = rawPath ? rawPath.split(/[/\\]/).pop() : `clip_${index}.mp4`
       const a = document.createElement('a')
       a.href = url
-      a.download = clip.filename || `clip_${index}.mp4`
+      a.download = filenameOnly
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
       URL.revokeObjectURL(url)
       
-      toast.success(`Klip ${index} berhasil diunduh!`)
+      toast.success(`Klip #${index} berhasil diunduh!`)
     } catch (err) {
       console.error('Download error:', err)
       toast.error('Gagal mengunduh klip')
@@ -131,9 +143,9 @@ export default function ClipCard({ clip, index }) {
       {/* Video Preview (9:16) */}
       <div className="aspect-9-16 relative bg-surface-800 overflow-hidden flex items-center justify-center">
         {loadingVideo && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 z-10">
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 z-10">
             <Loader2 className="w-8 h-8 text-brand-400 animate-spin mb-2" />
-            <span className="text-[11px] text-white/60">Memuat video...</span>
+            <span className="text-[11px] text-white/60">Memuat klip...</span>
           </div>
         )}
 
@@ -173,7 +185,7 @@ export default function ClipCard({ clip, index }) {
         ) : (
           <div className="w-full h-full flex flex-col items-center justify-center text-white/20">
             <FileVideo className="w-10 h-10 mb-2" />
-            <span className="text-xs">No preview</span>
+            <span className="text-xs">Preview tidak tersedia</span>
           </div>
         )}
 
@@ -182,7 +194,7 @@ export default function ClipCard({ clip, index }) {
           <div className="badge bg-black/60 text-white border-white/20">
             #{index}
           </div>
-          <ViralScoreBadge score={clip.viral_score || 0} />
+          <ViralScoreBadge score={clip?.viral_score || 0} />
         </div>
 
         <div className="absolute bottom-3 right-3 pointer-events-none z-30">
@@ -196,10 +208,10 @@ export default function ClipCard({ clip, index }) {
       {/* Info & Download */}
       <div className="p-4 space-y-3">
         <h3 className="font-display font-bold text-white text-sm leading-tight line-clamp-2">
-          {clip.title || `Klip #${index}`}
+          {clip?.title || `Klip #${index}`}
         </h3>
         
-        {clip.description && (
+        {clip?.description && (
           <p className="text-xs text-white/40 leading-relaxed line-clamp-2">
             {clip.description}
           </p>
@@ -208,7 +220,7 @@ export default function ClipCard({ clip, index }) {
         <div className="flex items-center gap-3 text-xs text-white/30">
           <span className="flex items-center gap-1">
             <TrendingUp className="w-3 h-3" />
-            {clip.start_time?.toFixed(0)}s → {clip.end_time?.toFixed(0)}s
+            {clip?.start_time?.toFixed(0)}s → {clip?.end_time?.toFixed(0)}s
           </span>
           {fileSizeMB && (
             <span className="ml-auto">{fileSizeMB} MB</span>
