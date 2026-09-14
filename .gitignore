@@ -1,0 +1,57 @@
+# ── Python ───────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+.env
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+*.log
+
+# ── Database ─────────────────────────────────────────────────
+*.db
+*.sqlite
+*.sqlite3
+
+# ── Media Files ──────────────────────────────────────────────
+uploads/*.mp4
+uploads/*.wav
+uploads/*.m4a
+uploads/*.webm
+clips/*.mp4
+# Jangan gitignore folder itu sendiri
+!uploads/.gitkeep
+!clips/.gitkeep
+
+# ── Node.js ──────────────────────────────────────────────────
+node_modules/
+dist/
+.cache/
+.parcel-cache/
+
+# ── OS ───────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── IDE ──────────────────────────────────────────────────────
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+
+# ── Celery ───────────────────────────────────────────────────
+celerybeat-schedule
+celerybeat.pid
+
+# ── Whisper Models ───────────────────────────────────────────
+# Models di-cache di HOME dir, tidak perlu di-commit
+
+cloudflared.exe*
+*.exe
