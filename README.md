@@ -1,304 +1,63 @@
-# AI Video Clipper 🎬✂️
-> **Mirip Opus Clip / Vizard.ai — 100% Open Source & Gratis**
+<div align="center">
 
-Platform web full-stack untuk mengubah video YouTube panjang menjadi klip viral format vertikal 9:16 secara otomatis menggunakan AI.
+# TimmyAICLIPs 🎬✂️
+### Platform Pembuat Video Pendek Otomatis Berbasis AI
 
----
+Platform pemrosesan video asinkron untuk mengubah video panjang YouTube menjadi klip vertikal format 9:16 siap posting menggunakan Speech-to-Text, Large Language Model, dan rendering FFmpeg terprogram.
 
-## 🚀 Tech Stack
+[![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![React](https://img.shields.io/badge/React_18-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
+[![Celery](https://img.shields.io/badge/Celery-37814A?style=for-the-badge&logo=celery&logoColor=white)](https://docs.celeryq.dev/)
+[![Redis](https://img.shields.io/badge/Upstash_Redis-DC382D?style=for-the-badge&logo=redis&logoColor=white)](https://upstash.com/)
+[![Gemini](https://img.shields.io/badge/Google_Gemini-4285F4?style=for-the-badge&logo=google&logoColor=white)](https://ai.google.dev/)
+[![FFmpeg](https://img.shields.io/badge/FFmpeg-007808?style=for-the-badge&logo=ffmpeg&logoColor=white)](https://ffmpeg.org/)
+[![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com/)
 
-| Layer | Teknologi |
-|-------|-----------|
-| **Frontend** | React 18 + Vite + Tailwind CSS |
-| **Backend API** | FastAPI (Python) |
-| **Task Queue** | Celery + Redis |
-| **Transcription** | faster-whisper (Whisper AI) |
-| **AI Analysis** | Google Gemini 2.5 Flash API |
-| **Video Processing** | FFmpeg + yt-dlp |
-| **Database** | SQLite (via SQLAlchemy async) |
+</div>
 
 ---
 
-## 📁 Folder Structure
+## 📌 Ringkasan Proyek
 
-```
-projek AI CLIP VIDEO/
-├── backend/
-│   ├── api/
-│   │   └── routes.py          # REST + WebSocket endpoints
-│   ├── services/
-│   │   ├── downloader.py      # yt-dlp wrapper
-│   │   ├── transcriber.py     # faster-whisper wrapper
-│   │   ├── ai_analyzer.py     # Gemini API integration
-│   │   └── video_processor.py # FFmpeg processing
-│   ├── workers/
-│   │   ├── celery_app.py      # Celery configuration
-│   │   └── tasks.py           # Pipeline background task
-│   ├── main.py                # FastAPI entry point
-│   ├── config.py              # Settings management
-│   ├── database.py            # SQLite async setup
-│   ├── models.py              # SQLAlchemy models
-│   └── requirements.txt
-├── frontend/
-│   ├── src/
-│   │   ├── pages/
-│   │   │   ├── Home.jsx       # URL input + hero page
-│   │   │   ├── Results.jsx    # Live progress + clips gallery
-│   │   │   └── History.jsx    # All jobs history
-│   │   ├── components/
-│   │   │   ├── Navbar.jsx
-│   │   │   ├── ProgressTracker.jsx  # Animated pipeline steps
-│   │   │   ├── ClipCard.jsx         # Video clip preview + download
-│   │   │   └── LoadingSpinner.jsx
-│   │   └── hooks/
-│   │       └── useJobStatus.js  # WebSocket hook
-│   ├── package.json
-│   ├── tailwind.config.js
-│   └── vite.config.js
-├── uploads/                   # Downloaded raw videos
-└── clips/                     # Output video clips
-```
+**TimmyAICLIPs** adalah solusi otomatis untuk memotong video panjang menjadi konten pendek (Shorts/Reels/TikTok). Seluruh sistem, mulai dari arsitektur backend, antarmuka frontend, hingga pipeline pemrosesan media berbasis AI, saya rancang dan kembangkan secara mandiri.
+
+Fokus utama pengembangan aplikasi ini berpusat pada **pemrosesan tugas asinkron yang andal**, **antrean tugas yang efisien tanpa membebani server web**, dan **antarmuka reaktif yang memperbarui status proses secara real-time**.
 
 ---
 
-## ⚙️ Prasyarat
+## ⚡ Fitur Utama & Implementasi Teknis
 
-Sebelum memulai, pastikan sudah terinstal:
-
-1. **Python 3.10+** — https://python.org
-2. **Node.js 18+** — https://nodejs.org
-3. **FFmpeg** — https://ffmpeg.org/download.html
-4. **Redis** — https://redis.io/download (untuk Celery)
-5. **Google Gemini API Key** — https://aistudio.google.com/app/apikey (GRATIS)
-
-### Install FFmpeg (Windows)
-```powershell
-# Via winget
-winget install Gyan.FFmpeg
-
-# Atau via Chocolatey
-choco install ffmpeg
-```
-
-### Install Redis (Windows)
-```powershell
-# Via WSL (direkomendasikan)
-wsl --install
-# Di dalam WSL:
-sudo apt install redis-server
-sudo service redis-server start
-
-# Atau download Redis for Windows dari:
-# https://github.com/microsoftarchive/redis/releases
-```
+* **Distributed Task Offloading:** Beban komputasi berat dialihkan ke **Celery Worker** mandiri dengan antrean pesan **Upstash Cloud Redis** agar server API FastAPI tidak mengalami timeout.
+* **Sinkronisasi Real-Time:** Memanfaatkan **WebSockets** pada FastAPI untuk mengirimkan status pemrosesan (`DOWNLOADING` → `TRANSCRIBING` → `ANALYZING` → `RENDERING` → `COMPLETED`) secara langsung ke halaman frontend.
+* **Transkripsi Berbasis Timestamp Kata:** Menggunakan model `faster-whisper` untuk mengekstrak teks percakapan beserta posisi waktu presisi tingkat milidetik demi kebutuhan animasi subtitle otomatis.
+* **Deteksi Momen Viral via LLM:** Mengintegrasikan **Google Gemini 2.5 Flash** untuk menganalisis isi transkrip, mendeteksi hook cerita yang kuat, menentukan klimaks, serta memberikan penilaian kelayakan klip secara semantik.
+* **Transformasi Format 9:16 via FFmpeg:** Melakukan pemotongan durasi otomatis, pemusatan rasio gambar (center crop 9:16), penyesuaian resolusi ke 1080x1920, serta penempelan subtitle animasi ke dalam video.
 
 ---
 
-## 🛠️ Setup & Installation
+## 🏗️ Alur Sistem & Arsitektur
 
-### Step 1 — Clone & Setup Backend
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Pengguna as Klien / Browser
+    participant API as FastAPI Gateway
+    participant DB as SQLite (Async SQLAlchemy)
+    participant Broker as Upstash Redis (Broker Antrean)
+    participant Worker as Celery Worker
+    participant AI as Gemini & Whisper AI
+    participant Media as yt-dlp & FFmpeg
 
-```powershell
-# Masuk ke folder backend
-cd backend
-
-# Buat virtual environment
-python -m venv venv
-.\venv\Scripts\activate    # Windows
-# source venv/bin/activate  # Linux/Mac
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Salin .env dan isi API key
-copy .env.example .env
-```
-
-Edit file `.env`:
-```env
-GEMINI_API_KEY=AIzaSy...    # ← ISI API KEY GEMINI ANDA DI SINI
-REDIS_URL=redis://localhost:6379/0
-WHISPER_MODEL=base           # tiny/base/small/medium
-```
-
-### Step 2 — Setup Frontend
-
-```powershell
-# Masuk ke folder frontend
-cd frontend
-
-# Install dependencies
-npm install
-```
-
----
-
-## ▶️ Cara Menjalankan
-
-Anda butuh **3 terminal** yang berjalan bersamaan:
-
-### Terminal 1 — FastAPI Backend Server
-```powershell
-cd backend
-.\venv\Scripts\activate
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
-```
-Backend akan berjalan di: `http://localhost:8000`  
-Swagger docs di: `http://localhost:8000/docs`
-
-### Terminal 2 — Celery Worker
-```powershell
-cd backend
-.\venv\Scripts\activate
-celery -A workers.celery_app worker --loglevel=info --concurrency=1 -Q video_processing
-```
-
-### Terminal 3 — React Frontend
-```powershell
-cd frontend
-npm run dev
-```
-Frontend akan berjalan di: `http://localhost:5173`
-
----
-
-## 🔄 Data Flow (Pipeline)
-
-```
-[User input YouTube URL]
-         │
-         ▼
-[POST /api/process-video]
-         │ Buat Job record di SQLite
-         │ Kirim task ke Celery queue
-         ▼
-[Celery Worker mulai proses]
-         │
-         ├─ Step 1: yt-dlp download video + metadata
-         │   Progress: 0% → 25%
-         │
-         ├─ Step 2: FFmpeg extract audio (16kHz WAV)
-         │   Progress: 25% → 30%
-         │
-         ├─ Step 3: faster-whisper transcribe audio
-         │   Output: word-level timestamps
-         │   Progress: 30% → 55%
-         │
-         ├─ Step 4: Gemini 2.5 Flash analyze transcript
-         │   Output: JSON dengan viral timestamps
-         │   Progress: 55% → 70%
-         │
-         └─ Step 5: FFmpeg render clips
-             - Trim by timestamp
-             - Center crop → 9:16 ratio
-             - Scale → 1080x1920
-             - Add animated word-by-word subtitles
-             Progress: 70% → 100%
-         │
-         ▼
-[Frontend WebSocket menerima real-time updates]
-         │
-         ▼
-[Results page: preview video + download MP4]
-```
-
----
-
-## 🎯 API Endpoints
-
-| Method | Endpoint | Deskripsi |
-|--------|----------|-----------|
-| `POST` | `/api/process-video` | Submit URL YouTube untuk diproses |
-| `GET` | `/api/jobs/{job_id}` | Ambil status dan hasil job |
-| `GET` | `/api/jobs` | Daftar semua jobs |
-| `DELETE` | `/api/jobs/{job_id}` | Hapus job |
-| `WS` | `/api/ws/{job_id}` | WebSocket realtime updates |
-| `GET` | `/clips/{filename}` | Stream/download video klip |
-| `GET` | `/health` | Health check |
-
----
-
-## 🎛️ Konfigurasi Advanced
-
-Edit `.env` untuk mengatur:
-
-```env
-# Whisper model size (tradeoff: speed vs accuracy)
-WHISPER_MODEL=base     # Cepat, OK untuk kebanyakan kasus
-WHISPER_MODEL=small    # Lebih akurat, 2x lebih lambat
-WHISPER_MODEL=medium   # Sangat akurat, butuh RAM lebih besar
-
-# Jumlah dan durasi klip
-MAX_CLIPS=5            # Default jumlah klip per video
-CLIP_MIN_DURATION=30   # Minimum 30 detik per klip
-CLIP_MAX_DURATION=90   # Maksimum 90 detik per klip
-
-# GPU (jika punya NVIDIA GPU)
-# Edit backend/services/transcriber.py:
-# device="cuda" dan compute_type="float16"
-```
-
----
-
-## 🐛 Troubleshooting
-
-### Error: "Redis connection refused"
-```powershell
-# Pastikan Redis berjalan
-# Windows: Buka Redis server
-redis-server
-
-# WSL:
-sudo service redis-server start
-```
-
-### Error: "FFmpeg not found"
-```powershell
-# Cek apakah FFmpeg ada di PATH
-ffmpeg -version
-
-# Jika tidak, tambahkan ke PATH atau install ulang
-```
-
-### Error: "GEMINI_API_KEY not set"
-```
-Pastikan file .env sudah dibuat dari .env.example
-dan GEMINI_API_KEY sudah diisi dengan benar.
-```
-
-### Whisper model download lambat
-```
-Model akan otomatis didownload saat pertama kali dipakai.
-Ukuran: tiny(72MB), base(142MB), small(461MB), medium(1.5GB)
-```
-
----
-
-## 📦 Dependencies Lengkap
-
-### Python Backend
-- `fastapi` + `uvicorn` — Web framework
-- `celery` + `redis` — Task queue
-- `yt-dlp` — YouTube downloader
-- `faster-whisper` — Whisper AI (CTranslate2 backend)
-- `google-generativeai` — Gemini API SDK
-- `sqlalchemy` + `aiosqlite` — Database ORM
-
-### Node.js Frontend
-- `react` + `react-router-dom` — SPA framework
-- `tailwindcss` — Utility-first CSS
-- `framer-motion` — Animasi smooth
-- `axios` — HTTP client
-- `lucide-react` — Icon library
-- `react-hot-toast` — Notifikasi
-
----
-
-## 📄 License
-
-MIT License — Free to use, modify, and distribute.
-
----
-
-**Dibuat dengan ❤️ oleh AI Principal Engineer**  
-*Stack: FastAPI + React + Whisper + Gemini + FFmpeg*
+    Pengguna->>API: POST /api/process-video (Link YouTube)
+    API->>DB: Simpan Data Job (Status: PENDING)
+    API->>Broker: Kirim Task process_video_task(job_id)
+    API-->>Pengguna: Respon 202 Accepted { job_id }
+    
+    Broker->>Worker: Ambil Task dari Antrean
+    Worker->>Media: Unduh Video & Ekstrak Audio (16kHz WAV)
+    Worker->>AI: Transkripsi Teks (faster-whisper)
+    Worker->>AI: Analisis Momen Menarik (Gemini Flash)
+    Worker->>Media: Render Klip 9:16 & Tempel Subtitle
+    Worker->>DB: Simpan Data Hasil Klip & Status COMPLETED
+    Worker-->>API: Kirim Sinyal Update Progress
+    API-->>Pengguna: Push Pembaruan Status via WebSocket
