@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 
-const WS_BASE = `ws://${window.location.hostname}:8000`
+// Konversi URL backend (https -> wss, http -> ws)
+const API_BASE = import.meta.env.VITE_API_BASE_URL || ''
+const WS_BASE = API_BASE 
+  ? API_BASE.replace(/^http/, 'ws') 
+  : `ws://${window.location.hostname}:8000`
 
 /**
  * Custom hook untuk subscribe ke status job via WebSocket.
@@ -10,9 +14,9 @@ const WS_BASE = `ws://${window.location.hostname}:8000`
  * @returns {{ job, isConnected, error }}
  */
 export default function useJobStatus(jobId) {
-  const [job, setJob]             = useState(null)
+  const [job, setJob]                 = useState(null)
   const [isConnected, setIsConnected] = useState(false)
-  const [error, setError]         = useState(null)
+  const [error, setError]             = useState(null)
   
   const wsRef         = useRef(null)
   const retryCount    = useRef(0)
