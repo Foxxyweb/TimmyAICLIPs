@@ -6,13 +6,12 @@ import useJobStatus from '../hooks/useJobStatus'
 import ProgressTracker from '../components/ProgressTracker'
 import ClipCard from '../components/ClipCard'
 
-// ── Results Page ──────────────────────────────────────────────
 export default function Results() {
   const { jobId } = useParams()
   const navigate = useNavigate()
   const { job, isConnected, error } = useJobStatus(jobId)
 
-  // 1. Penanganan saat data job masih dimuat (mencegah layar gelap/blank)
+  // 1. Penanganan saat data awal belum tersedia
   if (!job && !error) {
     return (
       <main className="min-h-screen flex flex-col items-center justify-center p-4">
@@ -22,14 +21,15 @@ export default function Results() {
     )
   }
 
-  // 2. Penanganan jika gagal memuat data job dari server
-  if (error) {
+  // 2. Penanganan jika request gagal total
+  if (error && !job) {
     return (
       <main className="min-h-screen flex flex-col items-center justify-center p-4">
         <XCircle className="w-12 h-12 text-red-500 mb-4" />
         <h2 className="text-white font-bold text-lg mb-1">Gagal Memuat Job</h2>
         <p className="text-white/50 text-sm mb-6">{error}</p>
         <button 
+          type="button"
           onClick={() => navigate('/')} 
           className="btn-secondary py-2 px-4 text-sm flex items-center gap-2"
         >
@@ -43,7 +43,17 @@ export default function Results() {
   const isCompleted = job?.status === 'completed'
   const isFailed    = job?.status === 'failed'
   const isCancelled = job?.status === 'cancelled'
-  const clips       = job?.clips || []
+
+  // Normalisasi data clips agar selalu berupa Array yang valid
+  let rawClips = job?.clips || []
+  if (typeof rawClips === 'string') {
+    try {
+      rawClips = JSON.parse(rawClips)
+    } catch {
+      rawClips = []
+    }
+  }
+  const clips = Array.isArray(rawClips) ? rawClips : []
 
   return (
     <main className="min-h-screen py-8 px-4">
@@ -52,6 +62,7 @@ export default function Results() {
         {/* ── Header ──────────────────────────────────────── */}
         <div className="flex items-center gap-4 mb-8">
           <button
+            type="button"
             onClick={() => navigate('/')}
             className="btn-secondary py-2 px-4 text-sm flex items-center gap-2"
           >
@@ -70,7 +81,7 @@ export default function Results() {
             </div>
           )}
 
-          {/* Connection status */}
+          {/* Status Koneksi */}
           <div className={`flex items-center gap-1.5 text-xs ${isConnected ? 'text-success' : 'text-white/30'}`}>
             <span className={`w-2 h-2 rounded-full ${isConnected ? 'bg-success animate-pulse' : 'bg-white/20'}`} />
             {isConnected ? 'Live' : 'Offline'}
@@ -92,7 +103,7 @@ export default function Results() {
           )}
         </AnimatePresence>
 
-        {/* ── Completed Banner ─────────────────────────────── */}
+        {/* ── Banner Status Selesai ────────────────────────── */}
         {isCompleted && (
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
@@ -105,10 +116,11 @@ export default function Results() {
                 🎉 {clips.length} Klip Viral Berhasil Dibuat!
               </h2>
               <p className="text-white/50 text-sm mt-0.5">
-                {job.status_message}
+                {job?.status_message || 'Semua klip video selesai diproses.'}
               </p>
             </div>
             <button
+              type="button"
               onClick={() => navigate('/')}
               className="ml-auto btn-secondary py-2 px-4 text-sm"
             >
@@ -117,7 +129,7 @@ export default function Results() {
           </motion.div>
         )}
 
-        {/* ── Failed Banner ────────────────────────────────── */}
+        {/* ── Banner Status Gagal ──────────────────────────── */}
         {isFailed && (
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
@@ -128,9 +140,12 @@ export default function Results() {
               <XCircle className="w-8 h-8 text-danger shrink-0" />
               <div>
                 <h2 className="font-display font-bold text-white text-lg">Processing Gagal</h2>
-                <p className="text-white/50 text-sm mt-0.5">{job?.error_message || 'Terjadi kesalahan pada server.'}</p>
+                <p className="text-white/50 text-sm mt-0.5">
+                  {job?.error_message || 'Terjadi kesalahan pada server saat memproses video.'}
+                </p>
               </div>
               <button
+                type="button"
                 onClick={() => navigate('/')}
                 className="ml-auto btn-secondary py-2 px-4 text-sm flex items-center gap-2"
               >
@@ -141,7 +156,7 @@ export default function Results() {
           </motion.div>
         )}
 
-        {/* ── Cancelled Banner ─────────────────────────────── */}
+        {/* ── Banner Status Batal ──────────────────────────── */}
         {isCancelled && (
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
@@ -153,10 +168,11 @@ export default function Results() {
               <div>
                 <h2 className="font-display font-bold text-white text-lg">Proses Dibatalkan</h2>
                 <p className="text-white/50 text-sm mt-0.5">
-                  {job?.status_message || 'Pemrosesan video ini telah dibatalkan oleh pengguna.'}
+                  {job?.status_message || 'Pemrosesan video ini telah dibatalkan.'}
                 </p>
               </div>
               <button
+                type="button"
                 onClick={() => navigate('/')}
                 className="ml-auto btn-secondary py-2 px-4 text-sm"
               >
@@ -166,7 +182,7 @@ export default function Results() {
           </motion.div>
         )}
 
-        {/* ── Video Thumbnail (hanya tampil saat sedang memproses) ──────────── */}
+        {/* ── Thumbnail Video (Saat Sedang Berjalan) ───────── */}
         {job?.thumbnail_url && !isCompleted && !isFailed && !isCancelled && (
           <motion.div
             initial={{ opacity: 0 }}
@@ -191,7 +207,7 @@ export default function Results() {
           </motion.div>
         )}
 
-        {/* ── Clips Gallery ───────────────────────────────── */}
+        {/* ── Galeri Klip Video ────────────────────────────── */}
         {clips.length > 0 && (
           <div>
             <div className="flex items-center justify-between mb-6">
@@ -206,7 +222,7 @@ export default function Results() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
               {clips.map((clip, index) => (
                 <motion.div
-                  key={clip.id}
+                  key={clip?.id || `clip-${index}`}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.1 }}
@@ -218,7 +234,7 @@ export default function Results() {
           </div>
         )}
 
-        {/* ── Empty State / Spinner (Hanya saat proses aktif) ─────────────────── */}
+        {/* ── State Menunggu Hasil Selesai ─────────────────── */}
         {clips.length === 0 && !isFailed && !isCancelled && !isCompleted && (
           <div className="text-center py-16 text-white/30">
             <Loader2 className="w-10 h-10 mx-auto mb-4 animate-spin text-brand-600" />
