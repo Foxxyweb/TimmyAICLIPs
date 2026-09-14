@@ -5,6 +5,9 @@ import { Scissors, Zap, Youtube, Sparkles, ChevronRight, Play, Clock, Star } fro
 import toast from 'react-hot-toast'
 import axios from 'axios'
 
+// ── Base URL Backend Ngrok ────────────────────────────────────
+const API_BASE = import.meta.env.VITE_API_BASE_URL || ''
+
 // ── Feature Cards Data ────────────────────────────────────────
 const FEATURES = [
   {
@@ -66,9 +69,13 @@ export default function Home() {
     setIsLoading(true)
     
     try {
-      const response = await axios.post('/api/process-video', {
+      const response = await axios.post(`${API_BASE}/api/process-video`, {
         youtube_url: trimmedUrl,
         max_clips: maxClips,
+      }, {
+        headers: {
+          'ngrok-skip-browser-warning': 'true',
+        }
       })
       
       const { job_id } = response.data

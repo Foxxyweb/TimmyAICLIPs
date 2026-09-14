@@ -6,19 +6,33 @@ Redis digunakan sebagai message broker.
 """
 
 # pyrefly: ignore [missing-import]
+import ssl
 from celery import Celery
 from config import settings
+
+# Pastikan URL menggunakan skema rediss:// jika memakai Upstash
+broker_url = settings.CELERY_BROKER_URL
+result_backend = settings.CELERY_RESULT_BACKEND
+
+# Konfigurasi SSL untuk broker dan backend Upstash
+ssl_options = {
+    "ssl_cert_reqs": ssl.CERT_NONE
+}
 
 # Buat Celery app instance
 celery_app = Celery(
     "ai_video_clipper",
-    broker=settings.CELERY_BROKER_URL,
-    backend=settings.CELERY_RESULT_BACKEND,
+    broker=broker_url,
+    backend=result_backend,
     include=["workers.tasks"],
 )
 
 # Konfigurasi Celery
 celery_app.conf.update(
+    # SSL Configuration untuk Upstash
+    broker_use_ssl=ssl_options,
+    redis_backend_use_ssl=ssl_options,
+
     # Serialization
     task_serializer="json",
     accept_content=["json"],
@@ -36,6 +50,7 @@ celery_app.conf.update(
     # Retry settings
     task_max_retries=3,
     task_default_retry_delay=60,
+    broker_connection_retry_on_startup=True,
     
     # Worker settings
     worker_concurrency=1,        # 1 task sekaligus (media processing berat)
