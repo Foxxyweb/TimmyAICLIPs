@@ -3,6 +3,9 @@ import { motion } from 'framer-motion'
 import { Download, Play, Pause, TrendingUp, Clock, Zap, FileVideo } from 'lucide-react'
 import toast from 'react-hot-toast'
 
+// ── Base URL Backend Ngrok ────────────────────────────────────
+const API_BASE = import.meta.env.VITE_API_BASE_URL || ''
+
 // ── Viral Score Badge ─────────────────────────────────────────
 function ViralScoreBadge({ score }) {
   const color = score >= 80 ? 'text-yellow-400 bg-yellow-500/15 border-yellow-500/30' :
@@ -23,10 +26,15 @@ export default function ClipCard({ clip, index }) {
   const [isHovered, setIsHovered] = useState(false)
   const videoRef = useRef(null)
   
-  const videoUrl = clip.video_url
+  // Format URL video agar selalu mengarah ke ngrok backend
+  const rawUrl = clip.video_url || (clip.filename ? `/clips/${clip.filename}` : '')
+  const videoUrl = rawUrl.startsWith('http') 
+    ? rawUrl 
+    : `${API_BASE}${rawUrl.startsWith('/') ? '' : '/'}${rawUrl}`
+
   const durationStr = clip.duration 
     ? `${Math.floor(clip.duration)}s`
-    : `${Math.floor(clip.end_time - clip.start_time)}s`
+    : `${Math.floor((clip.end_time || 0) - (clip.start_time || 0))}s`
   
   const fileSizeMB = clip.file_size 
     ? (clip.file_size / 1024 / 1024).toFixed(1)
@@ -38,13 +46,22 @@ export default function ClipCard({ clip, index }) {
     if (isPlaying) {
       videoRef.current.pause()
     } else {
-      videoRef.current.play()
+      videoRef.current.play().catch((err) => {
+        console.error('Play error:', err)
+      })
     }
   }
 
   const handleDownload = async () => {
     try {
-      const response = await fetch(videoUrl)
+      const response = await fetch(videoUrl, {
+        headers: {
+          'ngrok-skip-browser-warning': 'true',
+        },
+      })
+      
+      if (!response.ok) throw new Error('Gagal mengambil file video')
+
       const blob = await response.blob()
       const url = URL.createObjectURL(blob)
       
@@ -58,6 +75,7 @@ export default function ClipCard({ clip, index }) {
       
       toast.success(`Klip ${index} berhasil diunduh!`)
     } catch (err) {
+      console.error('Download error:', err)
       toast.error('Gagal mengunduh klip')
     }
   }
@@ -77,12 +95,14 @@ export default function ClipCard({ clip, index }) {
             <video
               ref={videoRef}
               src={videoUrl}
+              crossOrigin="anonymous"
               className="w-full h-full object-cover"
               onPlay={() => setIsPlaying(true)}
               onPause={() => setIsPlaying(false)}
               onEnded={() => setIsPlaying(false)}
               loop
               playsInline
+              preload="metadata"
             />
             
             {/* Play/Pause overlay */}
@@ -92,9 +112,10 @@ export default function ClipCard({ clip, index }) {
               className="absolute inset-0 flex items-center justify-center bg-black/30"
             >
               <button
+                type="button"
                 onClick={handlePlayPause}
                 className="w-14 h-14 rounded-full bg-white/10 backdrop-blur border border-white/20 
-                           flex items-center justify-center hover:bg-white/20 transition-colors"
+                           flex items-center justify-center hover:bg-white/20 transition-colors pointer-events-auto cursor-pointer"
               >
                 {isPlaying 
                   ? <Pause className="w-6 h-6 text-white fill-white" />
@@ -112,12 +133,10 @@ export default function ClipCard({ clip, index }) {
 
         {/* ── Overlay badges ───────────────────────────────── */}
         <div className="absolute top-3 left-3 right-3 flex justify-between items-start pointer-events-none">
-          {/* Clip number */}
           <div className="badge bg-black/60 text-white border-white/20">
             #{index}
           </div>
           
-          {/* Viral score */}
           <ViralScoreBadge score={clip.viral_score || 0} />
         </div>
 
@@ -158,11 +177,12 @@ export default function ClipCard({ clip, index }) {
         {/* Download button */}
         {videoUrl && (
           <button
+            type="button"
             onClick={handleDownload}
             className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg 
                        bg-brand-600/20 hover:bg-brand-600/40 border border-brand-500/30 
                        text-brand-400 hover:text-white text-xs font-semibold
-                       transition-all duration-200 group/btn"
+                       transition-all duration-200 group/btn cursor-pointer"
           >
             <Download className="w-3.5 h-3.5 group-hover/btn:animate-bounce-subtle" />
             Unduh Klip
