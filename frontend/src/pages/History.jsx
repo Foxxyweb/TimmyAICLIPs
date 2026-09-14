@@ -21,16 +21,27 @@ export default function History() {
         },
       })
 
-      // Penanganan aman untuk mencegah x.map is not a function
-      if (Array.isArray(res.data)) {
-        setJobs(res.data)
-      } else if (res.data && Array.isArray(res.data.jobs)) {
-        setJobs(res.data.jobs)
-      } else if (res.data && Array.isArray(res.data.items)) {
-        setJobs(res.data.items)
-      } else {
-        setJobs([])
+      const raw = res.data
+
+      // Ekstraksi data secara fleksibel untuk berbagai format response backend
+      let list = []
+      if (Array.isArray(raw)) {
+        list = raw
+      } else if (raw && typeof raw === 'object') {
+        if (Array.isArray(raw.jobs)) list = raw.jobs
+        else if (Array.isArray(raw.data)) list = raw.data
+        else if (Array.isArray(raw.items)) list = raw.items
+        else if (Array.isArray(raw.results)) list = raw.results
+        else {
+          // Jika backend mengembalikan dict berbasis ID job
+          const values = Object.values(raw)
+          if (values.length > 0 && typeof values[0] === 'object') {
+            list = values
+          }
+        }
       }
+
+      setJobs(Array.isArray(list) ? list : [])
     } catch (err) {
       console.error('Fetch history error:', err)
       setError('Gagal memuat riwayat job.')
@@ -44,6 +55,8 @@ export default function History() {
     fetchJobs()
   }, [])
 
+  const safeJobs = Array.isArray(jobs) ? jobs : []
+
   return (
     <main className="min-h-screen py-10 px-4">
       <div className="max-w-5xl mx-auto">
@@ -55,6 +68,7 @@ export default function History() {
             <p className="text-white/40 text-sm mt-1">Daftar video yang telah diproses sebelumnya</p>
           </div>
           <button
+            type="button"
             onClick={fetchJobs}
             className="btn-secondary text-xs py-2 px-3 flex items-center gap-1.5"
           >
@@ -72,7 +86,7 @@ export default function History() {
             <AlertCircle className="w-8 h-8 mx-auto mb-2 text-red-400" />
             <p className="text-sm">{error}</p>
           </div>
-        ) : jobs.length === 0 ? (
+        ) : safeJobs.length === 0 ? (
           <div className="glass-card p-12 text-center text-white/40">
             <Video className="w-12 h-12 mx-auto mb-3 opacity-30" />
             <p className="text-base font-medium text-white/60">Belum ada video yang diproses</p>
@@ -80,27 +94,27 @@ export default function History() {
           </div>
         ) : (
           <div className="grid gap-4">
-            {jobs.map((job) => (
+            {safeJobs.map((job, idx) => (
               <div
-                key={job.id}
-                onClick={() => navigate(`/results/${job.id}`)}
+                key={job?.id || idx}
+                onClick={() => job?.id && navigate(`/results/${job.id}`)}
                 className="glass-card p-4 hover:border-brand-500/40 transition-all cursor-pointer flex items-center justify-between gap-4"
               >
                 <div className="min-w-0 flex-1">
                   <h3 className="font-semibold text-white truncate text-base">
-                    {job.video_title || 'Video Tanpa Judul'}
+                    {job?.video_title || 'Video Tanpa Judul'}
                   </h3>
                   <div className="flex items-center gap-4 mt-2 text-xs text-white/40">
                     <span className="flex items-center gap-1">
                       <Calendar className="w-3.5 h-3.5" />
-                      {job.created_at ? new Date(job.created_at).toLocaleString('id-ID') : '-'}
+                      {job?.created_at ? new Date(job.created_at).toLocaleString('id-ID') : '-'}
                     </span>
                     <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium uppercase ${
-                      job.status === 'completed' ? 'bg-success/10 text-success border border-success/20' :
-                      job.status === 'failed' ? 'bg-danger/10 text-danger border border-danger/20' :
+                      job?.status === 'completed' ? 'bg-success/10 text-success border border-success/20' :
+                      job?.status === 'failed' ? 'bg-danger/10 text-danger border border-danger/20' :
                       'bg-brand-500/10 text-brand-400 border border-brand-500/20'
                     }`}>
-                      {job.status}
+                      {job?.status || 'UNKNOWN'}
                     </span>
                   </div>
                 </div>
