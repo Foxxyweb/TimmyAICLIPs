@@ -11,7 +11,7 @@ export default function Results() {
   const navigate = useNavigate()
   const { job, isConnected, error } = useJobStatus(jobId)
 
-  // 1. Penanganan saat data awal belum tersedia
+  // 1. Loading awal
   if (!job && !error) {
     return (
       <main className="min-h-screen flex flex-col items-center justify-center p-4">
@@ -21,7 +21,7 @@ export default function Results() {
     )
   }
 
-  // 2. Penanganan jika request gagal total
+  // 2. Error koneksi
   if (error && !job) {
     return (
       <main className="min-h-screen flex flex-col items-center justify-center p-4">
@@ -40,11 +40,13 @@ export default function Results() {
     )
   }
 
-  const isCompleted = job?.status === 'completed'
-  const isFailed    = job?.status === 'failed'
-  const isCancelled = job?.status === 'cancelled'
+  // Normalisasi status ke lowercase (mengatasi COMPLETED vs completed)
+  const currentStatus = (job?.status || '').toLowerCase()
+  const isCompleted   = currentStatus === 'completed' || (job?.progress || 0) >= 100
+  const isFailed      = currentStatus === 'failed'
+  const isCancelled   = currentStatus === 'cancelled'
 
-  // Normalisasi data clips agar selalu berupa Array yang valid
+  // Normalisasi parsing clips
   let rawClips = job?.clips || []
   if (typeof rawClips === 'string') {
     try {
@@ -88,7 +90,7 @@ export default function Results() {
           </div>
         </div>
 
-        {/* ── Progress Tracker ─────────────────────────────── */}
+        {/* ── Progress Tracker (Hanya tampil saat proses berjalan) ──────────────── */}
         <AnimatePresence mode="wait">
           {!isCompleted && !isFailed && !isCancelled && (
             <motion.div
@@ -103,7 +105,7 @@ export default function Results() {
           )}
         </AnimatePresence>
 
-        {/* ── Banner Status Selesai ────────────────────────── */}
+        {/* ── Banner Selesai ───────────────────────────────── */}
         {isCompleted && (
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
@@ -129,7 +131,7 @@ export default function Results() {
           </motion.div>
         )}
 
-        {/* ── Banner Status Gagal ──────────────────────────── */}
+        {/* ── Banner Gagal ─────────────────────────────────── */}
         {isFailed && (
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
@@ -141,7 +143,7 @@ export default function Results() {
               <div>
                 <h2 className="font-display font-bold text-white text-lg">Processing Gagal</h2>
                 <p className="text-white/50 text-sm mt-0.5">
-                  {job?.error_message || 'Terjadi kesalahan pada server saat memproses video.'}
+                  {job?.error_message || 'Terjadi kesalahan pada server.'}
                 </p>
               </div>
               <button
@@ -156,7 +158,7 @@ export default function Results() {
           </motion.div>
         )}
 
-        {/* ── Banner Status Batal ──────────────────────────── */}
+        {/* ── Banner Batal ─────────────────────────────────── */}
         {isCancelled && (
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
@@ -182,7 +184,7 @@ export default function Results() {
           </motion.div>
         )}
 
-        {/* ── Thumbnail Video (Saat Sedang Berjalan) ───────── */}
+        {/* ── Thumbnail Video (Saat Sedang Memproses) ──────── */}
         {job?.thumbnail_url && !isCompleted && !isFailed && !isCancelled && (
           <motion.div
             initial={{ opacity: 0 }}
@@ -234,7 +236,7 @@ export default function Results() {
           </div>
         )}
 
-        {/* ── State Menunggu Hasil Selesai ─────────────────── */}
+        {/* ── State Loading Klip (Hanya jika belum beres) ─── */}
         {clips.length === 0 && !isFailed && !isCancelled && !isCompleted && (
           <div className="text-center py-16 text-white/30">
             <Loader2 className="w-10 h-10 mx-auto mb-4 animate-spin text-brand-600" />
