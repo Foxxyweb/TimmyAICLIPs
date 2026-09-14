@@ -1,6 +1,6 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef } from 'react'
 import { motion } from 'framer-motion'
-import { Download, Play, Pause, TrendingUp, Clock, Zap, FileVideo, Loader2 } from 'lucide-react'
+import { Download, Play, Pause, TrendingUp, Clock, Zap, FileVideo } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/+$/, '')
@@ -20,62 +20,23 @@ function ViralScoreBadge({ score }) {
 export default function ClipCard({ clip, index }) {
   const [isPlaying, setIsPlaying] = useState(false)
   const [isHovered, setIsHovered] = useState(false)
-  const [blobVideoUrl, setBlobVideoUrl] = useState('')
-  const [loadingVideo, setLoadingVideo] = useState(false)
   const videoRef = useRef(null)
 
-  // 1. Tangkap path dari semua kemungkinan key backend (video_url, filename, path, file_path, dsb)
+  // 1. Dapatkan nama file murni dan bersihkan path lokal Windows/Linux
   const rawPath = clip?.video_url || clip?.url || clip?.file_url || clip?.filename || clip?.path || clip?.file_path || ''
+  const filenameOnly = rawPath ? rawPath.split(/[/\\]/).pop() : `clip_${index}.mp4`
 
-  // 2. Ekstrak nama file murni (buang D:\path\ke\file\ atau /var/data/)
-  let finalVideoUrl = ''
+  // 2. Susun Direct Streaming URL dengan bypass ngrok query param
+  let streamUrl = ''
   if (rawPath.startsWith('http://') || rawPath.startsWith('https://')) {
-    finalVideoUrl = rawPath
-  } else if (rawPath) {
-    const filenameOnly = rawPath.split(/[/\\]/).pop()
-    finalVideoUrl = `${API_BASE}/clips/${filenameOnly}`
+    streamUrl = rawPath
+  } else if (filenameOnly) {
+    streamUrl = `${API_BASE}/clips/${filenameOnly}`
   }
 
-  // Sisipkan bypass header via Query Param untuk ngrok
-  const separator = finalVideoUrl.includes('?') ? '&' : '?'
-  const videoUrlWithBypass = finalVideoUrl ? `${finalVideoUrl}${separator}ngrok-skip-browser-warning=true` : ''
-
-  // 3. Fetch video menjadi Blob agar bebas dari blokir ngrok & isu MIME
-  useEffect(() => {
-    let active = true
-    if (!videoUrlWithBypass) return
-
-    const loadVideoBlob = async () => {
-      try {
-        setLoadingVideo(true)
-        const res = await fetch(videoUrlWithBypass, {
-          headers: {
-            'ngrok-skip-browser-warning': 'true',
-          }
-        })
-        if (!res.ok) throw new Error(`HTTP Error: ${res.status}`)
-        const blob = await res.blob()
-        if (active) {
-          const objectUrl = URL.createObjectURL(blob)
-          setBlobVideoUrl(objectUrl)
-        }
-      } catch (err) {
-        console.error("Gagal load blob video, fallback ke direct URL:", err)
-        if (active) setBlobVideoUrl(videoUrlWithBypass)
-      } finally {
-        if (active) setLoadingVideo(false)
-      }
-    }
-
-    loadVideoBlob()
-
-    return () => {
-      active = false
-      if (blobVideoUrl && blobVideoUrl.startsWith('blob:')) {
-        URL.revokeObjectURL(blobVideoUrl)
-      }
-    }
-  }, [videoUrlWithBypass])
+  const directVideoUrl = streamUrl 
+    ? `${streamUrl}${streamUrl.includes('?') ? '&' : '?'}ngrok-skip-browser-warning=true` 
+    : ''
 
   const durationStr = clip?.duration 
     ? `${Math.floor(clip.duration)}s`
@@ -87,7 +48,7 @@ export default function ClipCard({ clip, index }) {
 
   const handlePlayPause = async () => {
     if (!videoRef.current) return
-    
+
     if (isPlaying) {
       videoRef.current.pause()
     } else {
@@ -95,41 +56,24 @@ export default function ClipCard({ clip, index }) {
         await videoRef.current.play()
       } catch (err) {
         console.error('Play error:', err)
-        toast.error('Tidak dapat memutar video')
+        toast.error('Gagal memutar video')
       }
     }
   }
 
-  const handleDownload = async () => {
-    try {
-      const targetUrl = blobVideoUrl || videoUrlWithBypass
-      if (!targetUrl) throw new Error('File video tidak ditemukan')
-
-      const response = await fetch(targetUrl, {
-        headers: {
-          'ngrok-skip-browser-warning': 'true',
-        },
-      })
-      
-      if (!response.ok) throw new Error('Gagal mengambil file video')
-
-      const blob = await response.blob()
-      const url = URL.createObjectURL(blob)
-      
-      const filenameOnly = rawPath ? rawPath.split(/[/\\]/).pop() : `clip_${index}.mp4`
-      const a = document.createElement('a')
-      a.href = url
-      a.download = filenameOnly
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
-      
-      toast.success(`Klip #${index} berhasil diunduh!`)
-    } catch (err) {
-      console.error('Download error:', err)
-      toast.error('Gagal mengunduh klip')
+  const handleDownload = () => {
+    if (!directVideoUrl) {
+      toast.error('File video tidak ditemukan')
+      return
     }
+    const a = document.createElement('a')
+    a.href = directVideoUrl
+    a.download = filenameOnly
+    a.target = '_blank'
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    toast.success(`Mengunduh Klip #${index}...`)
   }
 
   return (
@@ -142,25 +86,18 @@ export default function ClipCard({ clip, index }) {
     >
       {/* Video Preview (9:16) */}
       <div className="aspect-9-16 relative bg-surface-800 overflow-hidden flex items-center justify-center">
-        {loadingVideo && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 z-10">
-            <Loader2 className="w-8 h-8 text-brand-400 animate-spin mb-2" />
-            <span className="text-[11px] text-white/60">Memuat klip...</span>
-          </div>
-        )}
-
-        {blobVideoUrl ? (
+        {directVideoUrl ? (
           <>
             <video
               ref={videoRef}
-              src={blobVideoUrl}
+              src={directVideoUrl}
               className="w-full h-full object-cover"
               onPlay={() => setIsPlaying(true)}
               onPause={() => setIsPlaying(false)}
               onEnded={() => setIsPlaying(false)}
               loop
               playsInline
-              preload="auto"
+              preload="metadata"
             />
             
             {/* Tombol Play/Pause */}
